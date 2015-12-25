@@ -56,6 +56,38 @@ public class SGSFacebook: MonoBehaviour {
 	public delegate void PostFinished();
 	public static event PostFinished OnPostFinished;
 
+	public delegate void SubmitScoreStarted ();
+	public static event SubmitScoreStarted OnSubmitScoreStarted;
+
+	public delegate void SubmitScoreFinished();
+	public static event SubmitScoreFinished OnSubmitScoreFinished;
+
+	public delegate void DeleteScoreStarted ();
+	public static event DeleteScoreStarted OnDeletedScoreStarted;
+
+	public delegate void DeleteScoreFinished();
+	public static event DeleteScoreFinished OnDeletedScoreFinished;
+
+	public delegate void LoadUserDataStarted();
+	public static event LoadUserDataStarted OnLoadUserDataStarted;
+
+	public delegate void LoadUserDataFinished ();
+	public static event LoadUserDataFinished OnLoadUserDataFinished;
+
+	public delegate void AppScoresRequestStarted ();
+	public static event AppScoresRequestStarted OnAppScoresRequestStarted;
+
+	public delegate void AppScoresRequestFinished ();
+	public static event AppScoresRequestFinished OnAppScoresRequestFinished;
+
+	public delegate void PlayerScoresRequestStarted ();
+	public static event PlayerScoresRequestStarted OnPlayerScoresRequestStarted;
+
+	public delegate void PlayerScoreRequestFinished ();
+	public static event PlayerScoreRequestFinished OnPlayerScoresRequestFinished;
+
+
+
 
 	private string userId = "";
 	private string accessToken = "";
@@ -129,8 +161,10 @@ public class SGSFacebook: MonoBehaviour {
 	}
 
 	public void Logout(){
+
+		if(OnLogoutFinished != null)
+			OnLogoutFinished ();
 		
-		OnLogoutFinished ();
 		FB.LogOut ();
 		IsLoginRequestInProgress = false;
 		userId = "";
@@ -140,6 +174,9 @@ public class SGSFacebook: MonoBehaviour {
 
 	public void LoadUserData(){
 	
+		if (OnLoadUserDataStarted != null) {
+			OnLoadUserDataStarted ();
+		}
 		if (FB.IsLoggedIn) {
 
 			FB.API ("/me?fields=id,birthday,name,first_name,last_name,link,email,locale,location,gender", HttpMethod.GET, UserDataCallBack);  
@@ -149,17 +186,22 @@ public class SGSFacebook: MonoBehaviour {
 		}
 	}
 
-	public void UserDataCallBack(IResult result){
+	public void UserDataCallBack(IResult iResult){
 
-//		if (result.IsFailed) {
-//			
-//			Debug.Log (result.Error);
-//		}
-//		else {
-//			Debug.Log ("UserDataCallback result.rawData: " + result.RawData);
-//			userInfor = new FB_UserInfo(result.RawData);
-//		}
-//		OnUserDataRequestCompleteAction (result);
+		if (OnLoadUserDataFinished != null) {
+
+			OnLoadUserDataFinished ();
+		}
+		FB_Result result = new FB_Result (iResult.RawResult, iResult.Error);
+		if (result.IsFailed) {
+			
+			Debug.Log (result.Error);
+		}
+		else {
+			Debug.Log ("UserDataCallback result.rawData: " + result.RawData);
+			userInfor = new FB_UserInfo(result.RawData);
+		}
+
 	}
 
 	public void PostImage(string caption, Texture2D image){
@@ -196,8 +238,7 @@ public class SGSFacebook: MonoBehaviour {
 			OnPostFinished ();
 		}
 		Debug.Log("PostCallback:" + result.ToString());
-		//FB_PostResult postResult = new FB_PostResult (result.RawData, result.Error);
-	//OnPostiongCompleteAction (postResult);
+	
 	}
 
 	public void PostText(string message){
@@ -234,18 +275,28 @@ public class SGSFacebook: MonoBehaviour {
 
 	public void LoadPlayerScores(){
 
+		if (OnPlayerScoresRequestStarted != null) {
+
+			OnPlayerScoresRequestStarted ();
+		}
 		FB.API ("/" + UserId + "/scores", HttpMethod.GET, OnLoadPlayerScoresComplete);
 
 
 	}
 
-	public void OnLoadPlayerScoresComplete(IResult result){
+	public void OnLoadPlayerScoresComplete(IResult iResult){
 
-		if (result.Error != null) {
+		if (OnPlayerScoresRequestFinished != null) {
+		
+			OnPlayerScoresRequestFinished ();
+		}
+		FB_Result result  = new FB_Result(iResult.RawResult, iResult.Error);
+		if (result.IsFailed != null) {
 			return;
 		}
 
-		Dictionary<string, object> json = Facebook.MiniJSON.Json.Deserialize (result.RawResult) as Dictionary<string, object>;
+		Dictionary<string, object> json = Facebook.MiniJSON.Json.Deserialize (result.RawData) as Dictionary<string, object>;
+		Debug.Log ("OnLoadPlayerScoresCompleted: " + result.ToString());
 		List<object> data = json ["data"] as List<object>;
 	
 		foreach (object row in data) {
@@ -255,7 +306,7 @@ public class SGSFacebook: MonoBehaviour {
 			Dictionary<string, object> _userInfo = dataRow ["user"] as Dictionary<string, object>;
 			score.userId = System.Convert.ToString (_userInfo ["id"]);
 			score.userName = System.Convert.ToString (_userInfo ["name"]);
-		//	score.value = System.Convert.ToString (_userInfo ["score"]).;
+			score.value = Int32.Parse(System.Convert.ToString (_userInfo ["score"]));
 
 			Dictionary<string, object> _appInfo = dataRow ["application"] as Dictionary<string, object>;
 			score.AppId = System.Convert.ToString (_appInfo ["id"]);
@@ -285,18 +336,27 @@ public class SGSFacebook: MonoBehaviour {
 	}
 
 	public void LoadAppScores(){
+
+		if (OnAppScoresRequestStarted != null) {
+			OnAppScoresRequestStarted ();
+		}
 		FB.API ("/" + FB.AppId + "/scores", HttpMethod.GET, OnAppScoreComplete);
 	}
 
-	public void OnAppScoreComplete(IResult result){
+	public void OnAppScoreComplete(IResult iResult){
 
-		if (result.Error != null) {
-			//OnAppScoresRequestCompleteAction (result);
+		if (OnAppScoresRequestFinished != null) {
+
+			OnAppScoresRequestFinished ();
+		}
+		FB_Result result  = new FB_Result(iResult.RawResult, iResult.Error);
+
+		if (result.IsFailed) {
 			return;
 		}
 
 
-		Dictionary<string, object> jsonData = Facebook.MiniJSON.Json.Deserialize (result.RawResult) as Dictionary<string, object>;
+		Dictionary<string, object> jsonData = Facebook.MiniJSON.Json.Deserialize (result.RawData) as Dictionary<string, object>;
 		List<object> data = jsonData ["data"] as List<object>;
 
 		foreach (object row in data) {
@@ -343,7 +403,7 @@ public class SGSFacebook: MonoBehaviour {
 			AddToAppScores (score);
 		}
 
-		//	OnAppScoresRequestCompleteAction (result);
+
 	
 	}
 
@@ -364,6 +424,11 @@ public class SGSFacebook: MonoBehaviour {
 	}
 
 	public void SubmitScores(int score){
+
+		if (OnSubmitScoreStarted != null) {
+
+			OnSubmitScoreStarted ();
+		}
 		lastSubmitedScore = score;
 		FB.API("/" + UserId + "/scores?score=" + score, HttpMethod.POST, OnScoreSubmited); 
 		
@@ -371,20 +436,30 @@ public class SGSFacebook: MonoBehaviour {
 
 	//Delete scores for a player
 	public void DeletePlayerScores() {
+
+		if (OnDeletedScoreStarted != null) {
+
+			OnDeletedScoreFinished ();
+		}
 		FB.API("/" + UserId + "/scores", HttpMethod.DELETE, OnScoreDeleted); 
 
 
 	}
 
-	private void OnScoreSubmited(IResult result){
+	private void OnScoreSubmited(IResult iResult){
 	
-		if (result.Error != null) {
+		if (OnSubmitScoreFinished != null) {
+
+			OnSubmitScoreFinished ();
+		}
+		FB_Result result  = new FB_Result(iResult.RawResult, iResult.Error);
+		if (result.IsFailed) {
 			
 			//OnSubmitScoreRequestCompleteAction (result);
 			return;
 		}
 
-		if (result.RawResult.Equals ("true")) {
+		if (result.RawData.Equals ("true")) {
 		
 			FB_Score score = new FB_Score ();
 			score.AppId = AppId;
@@ -410,16 +485,20 @@ public class SGSFacebook: MonoBehaviour {
 		//OnSubmitScoreRequestCompleteAction (result);
 	}
 
-	private void OnScoreDeleted( IResult result){
+	private void OnScoreDeleted( IResult iResult){
 	
+		if (OnDeletedScoreFinished != null) {
 
-		if(result.Error != null) {
+			OnDeletedScoreFinished ();
+		}
+		FB_Result result  = new FB_Result(iResult.RawResult, iResult.Error);
+		if(result.IsFailed) {
 			//OnDeleteScoresRequestCompleteAction(result);
 			return;
 		}
 
 
-		if(result.RawResult.Equals("true")) {
+		if(result.RawData.Equals("true")) {
 
 			FB_Score score = new FB_Score();
 			score.AppId = AppId;
